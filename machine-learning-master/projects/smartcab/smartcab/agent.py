@@ -2,6 +2,8 @@ import random
 from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
+import pandas as pd 
+import numpy as np 
 
 class LearningAgent(Agent):
     """An agent that learns to drive in the smartcab world."""
@@ -11,10 +13,21 @@ class LearningAgent(Agent):
         self.color = 'red'  # override color
         self.planner = RoutePlanner(self.env, self)  # simple route planner to get next_waypoint
         # TODO: Initialize any additional variables here
+        self.valid_light = ['green','red']
+        self.valid_action = [None,'left','right','forward']
+        self.valid_state = [(light,oncoming,left,right) for light in self.valid_light for oncoming in self.valid_action for left in self.valid_action for right in self.valid_action]
+        self.Q = pd.DataFrame(np.random.rand(4,128),columns=self.valid_state,index=self.valid_action)
+        self.learningrate = 0.2
+        self.randomaction = 0.4
 
     def reset(self, destination=None):
         self.planner.route_to(destination)
         # TODO: Prepare for a new trip; reset any variables here, if required
+        self.state = None
+        self.action = None
+        self.reward = None
+        self.randomaction *= 0.95
+        #self.learningrate *= 0.99
 
     def update(self, t):
         # Gather inputs
@@ -23,16 +36,29 @@ class LearningAgent(Agent):
         deadline = self.env.get_deadline(self)
 
         # TODO: Update state
+        currentstate = (inputs['light'],inputs['oncoming'],inputs['left'],inputs['right'])
         
         # TODO: Select action according to your policy
-        action = None
+        if self.randomaction > random.random():
+        	action = random.choice(self.valid_action)
+        	print 'Who care that fucking police, let pick by coins!'
+        else:
+        	action = np.argmax(self.Q[currentstate])
 
         # Execute action and get reward
         reward = self.env.act(self, action)
 
         # TODO: Learn policy based on state, action, reward
+        if self.state is not None:
+        	estQ = self.reward + max(self.Q.get_value(index=a,col=currentstate) for a in self.valid_action)
+        	learnValue = (1-self.learningrate) * self.Q.get_value(index=self.action,col=self.state) + self.learningrate * estQ
+        	self.Q.set_value(index=self.action,col=self.state,value=learnValue)
+        	
+        self.state = currentstate
+        self.action = action
+        self.reward = reward
 
-        print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
+        #print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
 
 
 def run():
@@ -45,7 +71,7 @@ def run():
     # NOTE: You can set enforce_deadline=False while debugging to allow longer trials
 
     # Now simulate it
-    sim = Simulator(e, update_delay=0.5, display=True)  # create simulator (uses pygame when display=True, if available)
+    sim = Simulator(e, update_delay=0.05, display=True)  # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
     sim.run(n_trials=100)  # run for a specified number of trials
