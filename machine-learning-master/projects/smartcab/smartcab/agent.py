@@ -20,8 +20,9 @@ class LearningAgent(Agent):
         for next_waypoint in self.valid_action]
         self.Q = pd.DataFrame(np.random.rand(4,512),columns=self.valid_state,index=self.valid_action)
         self.learningrate = 0.7
-        self.randomaction = 0.4
-        self.discount = 0.7
+        self.randomaction = 0.1
+        self.discount = 0.1
+        self.count = {}
 
     def reset(self, destination=None):
         self.planner.route_to(destination)
@@ -29,8 +30,9 @@ class LearningAgent(Agent):
         self.state = None
         self.action = None
         self.reward = None
-        self.randomaction *= 0.95
+        self.randomaction *= 0.9
         self.learningrate *= 0.99
+        #print self.count
 
     def update(self, t):
         # Gather inputs
@@ -50,6 +52,7 @@ class LearningAgent(Agent):
 
         # Execute action and get reward
         reward = self.env.act(self, action)
+        #reward = 0.5*reward if reward > 0 else 15*reward
 
         # TODO: Learn policy based on state, action, reward
         if self.state is not None:
@@ -61,7 +64,12 @@ class LearningAgent(Agent):
         self.action = action
         self.reward = reward
 
-        #print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
+        if reward < 0 :
+        	try :
+        		self.count[currentstate] += 1
+        	except KeyError:
+        		self.count[currentstate] = 1
+        	print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
 
 
 
@@ -75,11 +83,14 @@ def run():
     # NOTE: You can set enforce_deadline=False while debugging to allow longer trials
 
     # Now simulate it
-    sim = Simulator(e, update_delay=0.08, display=True)  # create simulator (uses pygame when display=True, if available)
+    sim = Simulator(e, update_delay=0.0, display=False)  # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
     sim.run(n_trials=100)  # run for a specified number of trials
     # NOTE: To quit midway, press Esc or close pygame window, or hit Ctrl+C on the command-line
+    print a.count
+    print len(a.count)
+    print sum(a.count.values())
 
 
 if __name__ == '__main__':
